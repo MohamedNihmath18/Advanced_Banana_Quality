@@ -1,0 +1,8 @@
+{
+    "model": "Custom CNN",
+    "test_accuracy": 97.51,
+    "test_loss": 0.0871,
+    "epochs_trained": 25,
+    "img_size": "224x224",
+    "batch_size": 32
+}

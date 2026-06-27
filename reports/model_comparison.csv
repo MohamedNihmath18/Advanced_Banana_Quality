@@ -1,0 +1,5 @@
+Model,Test Accuracy (%),Test Loss,Precision,Recall,F1-Score,Inference Time (ms),Model Size (MB)
+ResNet50,98.75,0.0605,0.9876,0.9875,0.9875,25.46,97.1
+EfficientNetB0,98.75,0.037,0.9878,0.9875,0.9876,41.86,20.4
+MobileNetV2,97.51,0.0915,0.9753,0.9751,0.9751,49.01,13.4
+Custom CNN,97.51,0.0871,0.9757,0.9751,0.9752,16.54,302.3
