@@ -72,12 +72,13 @@ TAG_VERSION = "v1.0.0"
 # Fixed: Added the missing forward slash after github.com
 BASE_URL = f"https://github.com{GITHUB_USER}/{REPO_NAME}/releases/download/{TAG_VERSION}"
 
+# ── GitHub Release Asset URL Mapping ──
 MODEL_URLS = {
-    "Custom CNN":     f"{BASE_URL}/custom_cnn_model.keras",
-    "MobileNetV2":    f"{BASE_URL}/mobilenetv2_model.keras",
-    "EfficientNetB0": f"{BASE_URL}/efficientnetb0_model.keras",
-    "ResNet50":       f"{BASE_URL}/resnet50_model.keras",
-    "YOLO":           f"{BASE_URL}/yolo_detect_best.pt"
+    "Custom CNN":     "https://github.com",
+    "MobileNetV2":    "https://github.com",
+    "EfficientNetB0": "https://github.com",
+    "ResNet50":       "https://github.com",
+    "YOLO":           "https://github.com"
 }
 
 MODEL_FILES = {
@@ -87,6 +88,7 @@ MODEL_FILES = {
     "ResNet50":       "resnet50_model.keras",
     "YOLO":           "yolo_detect_best.pt"
 }
+
 
 # ── Robust Streaming Asset Downloader via Requests ──
 def download_if_missing(model_name, filename):
