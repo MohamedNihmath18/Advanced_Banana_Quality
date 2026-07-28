@@ -96,11 +96,20 @@ def download_if_missing(model_name, filename):
     if not os.path.exists(path):
         file_id = DRIVE_IDS.get(model_name)
         if file_id and "YOUR_" not in file_id:
+            # Fixed Google Drive download link structure
             download_url = f"https://google.com{file_id}"
             with st.spinner(f"📥 Downloading {model_name} architecture from Google Drive... Please wait."):
                 try:
-                    gdown.download(download_url, path, quiet=False)
-                    st.sidebar.success(f"✅ {model_name} binary downloaded successfully!")
+                    # Using fuzzy=True helps bypass Google Drive large-file warnings
+                    gdown.download(download_url, path, quiet=False, fuzzy=True)
+                    
+                    # Validate that the downloaded file is a real file and not an empty shell
+                    if os.path.exists(path) and os.path.getsize(path) > 1000:
+                        st.sidebar.success(f"✅ {model_name} binary downloaded successfully!")
+                    else:
+                        if os.path.exists(path): 
+                            os.remove(path)  # Delete broken file
+                        st.sidebar.error(f"❌ Downloaded file for {model_name} is corrupted or empty.")
                 except Exception as e:
                     st.sidebar.error(f"❌ Failed to fetch weights for {model_name}: {e}")
         else:
@@ -113,7 +122,12 @@ def load_selected_classification_model(name):
     filename = MODEL_FILES[name]
     path = download_if_missing(name, filename)
     if os.path.exists(path):
-        return load_model(path)
+        try:
+            return load_model(path)
+        except Exception as e:
+            st.error(f"Error initializing model file: {e}")
+            if os.path.exists(path): 
+                os.remove(path) # Wipe file if it's broken so it re-downloads
     return None
 
 @st.cache_resource
@@ -179,7 +193,7 @@ with st.spinner("⏳ Configuring runtime environment..."):
 
 # Fallback error guard layer
 if active_classification_model is None:
-    st.error(f"❌ Could not load {selected_model}. Ensure your Google Drive File ID is mapped correctly.")
+    st.error(f"❌ Could not load {selected_model}. Ensure your Google Drive File ID is mapped correctly and permissions are public.")
     st.stop()
 
 # ── Navigational App Tabs Layout ──
@@ -247,3 +261,5 @@ with tab1:
 
             with st.spinner("Running YOLO detection..."):
                 det_result = detect_bananas(yolo_model, image_input, conf_threshold)
+                if det_result is not None:
+                    st.image(det_result, width='stretch')
