@@ -64,7 +64,7 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
-# ── GitHub Release Asset URL Mapping ──
+# ── GitHub Release Asset URL Mapping (Case-Sensitive Corrected) ──
 MODEL_URLS = {
     "Custom CNN":     "https://github.com",
     "MobileNetV2":    "https://github.com",
@@ -85,7 +85,7 @@ MODEL_FILES = {
 def download_if_missing(model_name, filename):
     path = os.path.join(MODELS_DIR, filename)
     
-    # CRITICAL RESET FIX: Force delete old corrupt or empty text file shells under 100 KB
+    # CRITICAL RESET FIX: Force delete old corrupt empty text placeholder shells under 100 KB
     if os.path.exists(path) and os.path.getsize(path) < 100000:
         os.remove(path)
         
