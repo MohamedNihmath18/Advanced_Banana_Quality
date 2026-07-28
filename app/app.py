@@ -122,7 +122,8 @@ def load_selected_classification_model(name):
     path = download_if_missing(name, filename)
     if os.path.exists(path):
         try:
-            return load_model(path)
+            # CRITICAL: compile=False bypasses Keras 2 vs Keras 3 version compilation mismatch bugs
+            return load_model(path, compile=False)
         except Exception as e:
             st.error(f"Failed to read file layout structure: {e}")
             if os.path.exists(path): os.remove(path)
