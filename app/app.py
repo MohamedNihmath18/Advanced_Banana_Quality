@@ -2,6 +2,7 @@ import os
 import sys
 
 # ── CRITICAL: Environment Overrides to Prevent Segmentation Faults ──
+# Force TensorFlow to use safe, low-RAM configurations inside Streamlit Cloud
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["XLA_FLAGS"] = "--xla_cpu_compilation_parallelism=1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -13,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import json
-import urllib.request
+import requests
 from tensorflow.keras.models import load_model
 from ultralytics import YOLO
 
@@ -86,29 +87,29 @@ MODEL_FILES = {
     "YOLO":           "yolo_detect_best.pt"
 }
 
-# ── Native High-Speed Asset Downloader ──
+# ── Robust Streaming Asset Downloader via Requests ──
 def download_if_missing(model_name, filename):
     path = os.path.join(MODELS_DIR, filename)
     if not os.path.exists(path):
         download_url = MODEL_URLS.get(model_name)
         if download_url:
-            with st.spinner(f"📥 Downloading {model_name} architecture from GitHub Assets... Please wait."):
+            with st.spinner(f"📥 Downloading {model_name} from GitHub Assets... Please wait."):
                 try:
-                    # Clean request configuration to download direct asset paths
-                    req = urllib.request.Request(
-                        download_url, 
-                        headers={'User-Agent': 'Mozilla/5.0'}
-                    )
-                    with urllib.request.urlopen(req) as response, open(path, 'wb') as out_file:
-                        out_file.write(response.read())
-                    
+                    # stream=True handles files cleanly without running out of RAM
+                    headers = {'User-Agent': 'Mozilla/5.0'}
+                    with requests.get(download_url, headers=headers, stream=True, allow_redirects=True) as r:
+                        r.raise_for_status()
+                        with open(path, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=8192):
+                                f.write(chunk)
+                                
                     if os.path.exists(path) and os.path.getsize(path) > 5000:
                         st.sidebar.success(f"✅ {model_name} ready!")
                     else:
                         if os.path.exists(path): os.remove(path)
-                        st.sidebar.error(f"❌ Asset size validation failed for {model_name}.")
+                        st.sidebar.error(f"❌ Download failed: File size validation error for {model_name}.")
                 except Exception as e:
-                    st.sidebar.error(f"❌ Failed downloading {model_name}: {e}")
+                    st.sidebar.error(f"❌ Network error downloading {model_name}: {e}")
         else:
             st.sidebar.error(f"⚠️ Link configuration mapping missing for: {model_name}")
     return path
@@ -122,11 +123,11 @@ def load_selected_classification_model(name):
     path = download_if_missing(name, filename)
     if os.path.exists(path):
         try:
-            # CRITICAL: compile=False bypasses Keras 2 vs Keras 3 version compilation mismatch bugs
+            # compile=False bypasses Keras version structural mismatch errors
             return load_model(path, compile=False)
         except Exception as e:
-            st.error(f"Failed to read file layout structure: {e}")
-            if os.path.exists(path): os.remove(path)
+            st.error(f"Failed to load the model file binary: {e}")
+            if os.path.exists(path): os.remove(path) # Wipe broken file to force clean re-download
     return None
 
 @st.cache_resource
