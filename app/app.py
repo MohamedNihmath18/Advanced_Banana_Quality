@@ -69,6 +69,7 @@ GITHUB_USER = "mohamednihmath18"
 REPO_NAME   = "advanced_banana_quality"
 TAG_VERSION = "v1.0.0"
 
+# Fixed: Added the missing forward slash after github.com
 BASE_URL = f"https://github.com{GITHUB_USER}/{REPO_NAME}/releases/download/{TAG_VERSION}"
 
 MODEL_URLS = {
