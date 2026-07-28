@@ -64,7 +64,7 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
-# ── GitHub Release Asset URL Mapping (Case-Sensitive Corrected) ──
+# ── GitHub Release Asset URL Mapping (Direct Proxy Links) ──
 MODEL_URLS = {
     "Custom CNN":     "https://github.com",
     "MobileNetV2":    "https://github.com",
@@ -80,6 +80,7 @@ MODEL_FILES = {
     "ResNet50":       "resnet50_model.keras",
     "YOLO":           "yolo_detect_best.pt"
 }
+
 
 # ── Robust Streaming Asset Downloader via Requests ──
 def download_if_missing(model_name, filename):
