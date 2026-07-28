@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import json
 import urllib.request
-import re
 from tensorflow.keras.models import load_model
 from ultralytics import YOLO
 
@@ -53,14 +52,6 @@ st.markdown("""
         margin: 10px 0;
         border-left: 5px solid #FFD700;
     }
-    .footer {
-        text-align: center;
-        color: #666;
-        font-size: 0.85rem;
-        margin-top: 50px;
-        padding: 20px;
-        border-top: 1px solid #333;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -68,18 +59,23 @@ st.markdown("""
 APP_DIR    = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR   = os.path.dirname(APP_DIR)
 MODELS_DIR = os.path.join(BASE_DIR, "models")
-REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
-# ── Verified Google Drive File ID Mapping ──
-DRIVE_IDS = {
-    "Custom CNN":     "14q_FPZdQ8sC1Hfnm-meSzN8eMPcLlZeq", 
-    "MobileNetV2":    "1wP5bbqtB5j5PZfgHK0GiK0XNhIP_lWuQ", 
-    "EfficientNetB0": "1C4EgCue5GOxke2fAiLkjC3MZpEYO1pIX",
-    "ResNet50":       "1Z7N9PLeb_aDrmoxg3gyon4tmdVho-9Sf",  
-    "YOLO":           "1LatSoXDZme8FlhQKD-dQcBWZF5kRFIiD"
+# ── GitHub Release Asset URL Mapping ──
+GITHUB_USER = "mohamednihmath18"
+REPO_NAME   = "advanced_banana_quality"
+TAG_VERSION = "v1.0.0"
+
+BASE_URL = f"https://github.com{GITHUB_USER}/{REPO_NAME}/releases/download/{TAG_VERSION}"
+
+MODEL_URLS = {
+    "Custom CNN":     f"{BASE_URL}/custom_cnn_model.keras",
+    "MobileNetV2":    f"{BASE_URL}/mobilenetv2_model.keras",
+    "EfficientNetB0": f"{BASE_URL}/efficientnetb0_model.keras",
+    "ResNet50":       f"{BASE_URL}/resnet50_model.keras",
+    "YOLO":           f"{BASE_URL}/yolo_detect_best.pt"
 }
 
 MODEL_FILES = {
@@ -87,61 +83,48 @@ MODEL_FILES = {
     "MobileNetV2":    "mobilenetv2_model.keras",
     "EfficientNetB0": "efficientnetb0_model.keras",
     "ResNet50":       "resnet50_model.keras",
+    "YOLO":           "yolo_detect_best.pt"
 }
 
-# ── High-Reliability Google Drive Large File Downloader ──
+# ── Native High-Speed Asset Downloader ──
 def download_if_missing(model_name, filename):
     path = os.path.join(MODELS_DIR, filename)
     if not os.path.exists(path):
-        file_id = DRIVE_IDS.get(model_name)
-        if file_id:
-            with st.spinner(f"📥 Downloading {model_name} binary... Please wait."):
+        download_url = MODEL_URLS.get(model_name)
+        if download_url:
+            with st.spinner(f"📥 Downloading {model_name} architecture from GitHub Assets... Please wait."):
                 try:
-                    # Step 1: Send an initial request to get the download confirmation token
-                    base_url = "https://google.com"
-                    request_url = f"{base_url}&id={file_id}"
+                    # Clean request configuration to download direct asset paths
+                    req = urllib.request.Request(
+                        download_url, 
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    with urllib.request.urlopen(req) as response, open(path, 'wb') as out_file:
+                        out_file.write(response.read())
                     
-                    cookie_processor = urllib.request.HTTPCookieProcessor()
-                    opener = urllib.request.build_opener(cookie_processor)
-                    urllib.request.install_opener(opener)
-                    
-                    response = opener.open(request_url)
-                    html = response.read().decode('utf-8', errors='ignore')
-                    
-                    # Look for Google's large file download confirmation token link
-                    confirm_token = None
-                    match = re.search(r'confirm=([0-9A-Za-z_]+)', html)
-                    if match:
-                        confirm_token = match.group(1)
-                    
-                    # Step 2: Re-request using the explicit verification token bypass
-                    if confirm_token:
-                        final_url = f"{base_url}&confirm={confirm_token}&id={file_id}"
-                    else:
-                        final_url = request_url
-                        
-                    urllib.request.urlretrieve(final_url, path)
-                    
-                    # Verification Layer
                     if os.path.exists(path) and os.path.getsize(path) > 5000:
-                        st.sidebar.success(f"✅ {model_name} downloaded successfully!")
+                        st.sidebar.success(f"✅ {model_name} ready!")
                     else:
                         if os.path.exists(path): os.remove(path)
-                        st.sidebar.error(f"❌ Received a broken empty shell file for {model_name}.")
+                        st.sidebar.error(f"❌ Asset size validation failed for {model_name}.")
                 except Exception as e:
-                    st.sidebar.error(f"❌ Downloader critical exception for {model_name}: {e}")
+                    st.sidebar.error(f"❌ Failed downloading {model_name}: {e}")
+        else:
+            st.sidebar.error(f"⚠️ Link configuration mapping missing for: {model_name}")
     return path
 
 # ── Optimized Lazy-Loading Cache Hooks ──
 @st.cache_resource
 def load_selected_classification_model(name):
-    filename = MODEL_FILES[name]
+    filename = MODEL_FILES.get(name)
+    if not filename:
+        return None
     path = download_if_missing(name, filename)
     if os.path.exists(path):
         try:
             return load_model(path)
         except Exception as e:
-            st.error(f"Failed to read compiled model: {e}. Re-fetching file binary.")
+            st.error(f"Failed to read file layout structure: {e}")
             if os.path.exists(path): os.remove(path)
     return None
 
@@ -149,7 +132,11 @@ def load_selected_classification_model(name):
 def load_yolo_model():
     path = download_if_missing("YOLO", "yolo_detect_best.pt")
     if os.path.exists(path):
-        return YOLO(path)
+        try:
+            return YOLO(path)
+        except Exception as e:
+            st.error(f"YOLO backend runtime init exception: {e}")
+            if os.path.exists(path): os.remove(path)
     return None
 
 # ── Layout Header Application Title ──
@@ -160,15 +147,11 @@ st.info("📦 Dataset: Banana Ripeness Classification — Roboflow Universe (CC 
 # ── Sidebar Settings UI Control Panel ──
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
-
-    input_method = st.radio(
-        "📷 Input Method",
-        ["Upload Image", "Camera Capture"]
-    )
+    input_method = st.radio("📷 Input Method", ["Upload Image", "Camera Capture"])
 
     st.markdown("### 🤖 Classification Model")
     selected_model = st.selectbox(
-        "Select Model",
+        "Select Model", 
         ["Custom CNN", "MobileNetV2", "EfficientNetB0", "ResNet50"]
     )
 
@@ -190,50 +173,31 @@ with st.sidebar:
     run_detection   = st.checkbox("Enable YOLO Detection", value=True)
     conf_threshold  = st.slider("Confidence Threshold", 0.1, 0.9, 0.25, 0.05)
 
-    st.markdown("### 💡 Tips")
-    st.markdown("""
-    - Use **clear lighting**
-    - Show **one banana clearly**
-    - Avoid **cluttered backgrounds**
-    """)
-
 # ── Dynamic Model Invocations ──
-with st.spinner("⏳ Configuring runtime environment..."):
+with st.spinner("⏳ Configuring cloud runtime environment..."):
     active_classification_model = load_selected_classification_model(selected_model)
-    
     if run_detection:
         yolo_model = load_yolo_model()
     else:
         yolo_model = None
 
-# Fallback error guard layer
 if active_classification_model is None:
-    st.error(f"❌ Could not load {selected_model}. Ensure your Google Drive File ID is mapped correctly and permissions are public.")
+    st.error(f"❌ Cloud deployment failed to load {selected_model} from GitHub Release Assets.")
     st.stop()
 
 # ── Navigational App Tabs Layout ──
-tab1, tab2, tab3 = st.tabs([
-    "🔍 Detection & Classification",
-    "📊 Model Comparison",
-    "ℹ️ About"
-])
+tab1, tab2, tab3 = st.tabs(["🔍 Detection & Classification", "📊 Model Comparison", "ℹ️ About"])
 
-# ── TAB 1: Core Computer Vision Processing Engine ──
 with tab1:
     st.markdown("## 📸 Upload or Capture a Banana Image")
     image_input = None
 
     if input_method == "Upload Image":
-        uploaded = st.file_uploader(
-            "Choose an image...",
-            type=["jpg", "jpeg", "png"]
-        )
-        if uploaded:
-            image_input = uploaded
+        uploaded = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+        if uploaded: image_input = uploaded
     else:
         camera_img = st.camera_input("📷 Take a photo")
-        if camera_img:
-            image_input = camera_img
+        if camera_img: image_input = camera_img
 
     if image_input is not None:
         col1, col2 = st.columns()
@@ -245,7 +209,7 @@ with tab1:
 
         with col2:
             st.markdown("### 🤖 Classification Result")
-            with st.spinner(f"Running {selected_model}..."):
+            with st.spinner(f"Running Inference via {selected_model}..."):
                 result = classify_image(active_classification_model, img_resized, selected_model)
 
             cls_name = result["class"]
@@ -256,25 +220,14 @@ with tab1:
                 <h2>{cls_info.get("emoji","🍌")} {cls_name.upper()}</h2>
                 <p>{cls_info.get("description","")}</p>
                 <h3>Confidence: {result["confidence"]:.1f}%</h3>
-                <p>⚡ Inference: {result["inference_time"]:.1f} ms</p>
-                <p>🤖 Model: {selected_model}</p>
             </div>
             """, unsafe_allow_html=True)
-
-            st.markdown("#### 📊 Confidence per Class:")
-            for cls, conf in sorted(
-                result["all_confidences"].items(),
-                key=lambda x: x, reverse=True
-            ):
-                emoji = CLASS_INFO.get(cls, {}).get("emoji", "🍌")
-                st.progress(int(conf), text=f"{emoji} {cls}: {conf:.1f}%")
 
         if run_detection and yolo_model is not None:
             st.markdown("---")
             st.markdown("### 🎯 YOLO Object Detection & Counting")
             image_input.seek(0)
-
-            with st.spinner("Running YOLO detection..."):
+            with st.spinner("Running YOLO architecture parsing..."):
                 det_result = detect_bananas(yolo_model, image_input, conf_threshold)
                 if det_result is not None:
                     st.image(det_result, width='stretch')
