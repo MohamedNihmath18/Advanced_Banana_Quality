@@ -65,14 +65,6 @@ if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
 # ── GitHub Release Asset URL Mapping ──
-GITHUB_USER = "mohamednihmath18"
-REPO_NAME   = "advanced_banana_quality"
-TAG_VERSION = "v1.0.0"
-
-# Fixed: Added the missing forward slash after github.com
-BASE_URL = f"https://github.com{GITHUB_USER}/{REPO_NAME}/releases/download/{TAG_VERSION}"
-
-# ── GitHub Release Asset URL Mapping ──
 MODEL_URLS = {
     "Custom CNN":     "https://github.com",
     "MobileNetV2":    "https://github.com",
@@ -89,28 +81,33 @@ MODEL_FILES = {
     "YOLO":           "yolo_detect_best.pt"
 }
 
-
 # ── Robust Streaming Asset Downloader via Requests ──
 def download_if_missing(model_name, filename):
     path = os.path.join(MODELS_DIR, filename)
+    
+    # CRITICAL RESET FIX: Force delete old corrupt or empty text file shells under 100 KB
+    if os.path.exists(path) and os.path.getsize(path) < 100000:
+        os.remove(path)
+        
     if not os.path.exists(path):
         download_url = MODEL_URLS.get(model_name)
         if download_url:
             with st.spinner(f"📥 Downloading {model_name} from GitHub Assets... Please wait."):
                 try:
-                    # stream=True handles files cleanly without running out of RAM
                     headers = {'User-Agent': 'Mozilla/5.0'}
+                    # stream=True processes chunks sequentially to prevent server RAM overflow crashes
                     with requests.get(download_url, headers=headers, stream=True, allow_redirects=True) as r:
                         r.raise_for_status()
                         with open(path, 'wb') as f:
                             for chunk in r.iter_content(chunk_size=8192):
                                 f.write(chunk)
                                 
-                    if os.path.exists(path) and os.path.getsize(path) > 5000:
+                    # Ensure the final file is actually a heavy model file (larger than 1 MB)
+                    if os.path.exists(path) and os.path.getsize(path) > 1000000:
                         st.sidebar.success(f"✅ {model_name} ready!")
                     else:
                         if os.path.exists(path): os.remove(path)
-                        st.sidebar.error(f"❌ Download failed: File size validation error for {model_name}.")
+                        st.sidebar.error(f"❌ Download failed: Received error text string instead of file binary for {model_name}.")
                 except Exception as e:
                     st.sidebar.error(f"❌ Network error downloading {model_name}: {e}")
         else:
@@ -126,7 +123,7 @@ def load_selected_classification_model(name):
     path = download_if_missing(name, filename)
     if os.path.exists(path):
         try:
-            # compile=False bypasses Keras version structural mismatch errors
+            # compile=False bypasses Keras version structural mismatch errors between training & deployment environments
             return load_model(path, compile=False)
         except Exception as e:
             st.error(f"Failed to load the model file binary: {e}")
