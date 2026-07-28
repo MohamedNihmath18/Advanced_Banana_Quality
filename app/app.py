@@ -101,7 +101,7 @@ def download_if_missing(model_name, filename):
             with st.spinner(f"📥 Downloading {model_name} architecture from Google Drive... Please wait."):
                 try:
                     # Using fuzzy=True helps bypass Google Drive large-file warnings
-                    gdown.download(download_url, path, quiet=False, fuzzy=True)
+                    gdown.download(download_url, path, quiet=False)
                     
                     # Validate that the downloaded file is a real file and not an empty shell
                     if os.path.exists(path) and os.path.getsize(path) > 1000:
