@@ -2,7 +2,6 @@ import os
 import sys
 
 # ── CRITICAL: Environment Overrides to Prevent Segmentation Faults ──
-# Force TensorFlow to use safe, low-RAM configurations inside Streamlit Cloud
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["XLA_FLAGS"] = "--xla_cpu_compilation_parallelism=1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -14,9 +13,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import json
+import urllib.request
+import re
 from tensorflow.keras.models import load_model
 from ultralytics import YOLO
-import gdown
 
 # Import custom processing utilities from your local utils.py file
 from utils import (
@@ -70,11 +70,10 @@ BASE_DIR   = os.path.dirname(APP_DIR)
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 
-# Ensure the models directory exists locally/on the server container
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
-# ── Google Drive File ID Mapping ──
+# ── Verified Google Drive File ID Mapping ──
 DRIVE_IDS = {
     "Custom CNN":     "14q_FPZdQ8sC1Hfnm-meSzN8eMPcLlZeq", 
     "MobileNetV2":    "1wP5bbqtB5j5PZfgHK0GiK0XNhIP_lWuQ", 
@@ -90,30 +89,47 @@ MODEL_FILES = {
     "ResNet50":       "resnet50_model.keras",
 }
 
-# ── Automated On-Demand Downloader Helper ──
+# ── High-Reliability Google Drive Large File Downloader ──
 def download_if_missing(model_name, filename):
     path = os.path.join(MODELS_DIR, filename)
     if not os.path.exists(path):
         file_id = DRIVE_IDS.get(model_name)
-        if file_id and "YOUR_" not in file_id:
-            # Fixed Google Drive download link structure
-            download_url = f"https://google.com{file_id}"
-            with st.spinner(f"📥 Downloading {model_name} architecture from Google Drive... Please wait."):
+        if file_id:
+            with st.spinner(f"📥 Downloading {model_name} binary... Please wait."):
                 try:
-                    # Using fuzzy=True helps bypass Google Drive large-file warnings
-                    gdown.download(download_url, path, quiet=False)
+                    # Step 1: Send an initial request to get the download confirmation token
+                    base_url = "https://google.com"
+                    request_url = f"{base_url}&id={file_id}"
                     
-                    # Validate that the downloaded file is a real file and not an empty shell
-                    if os.path.exists(path) and os.path.getsize(path) > 1000:
-                        st.sidebar.success(f"✅ {model_name} binary downloaded successfully!")
+                    cookie_processor = urllib.request.HTTPCookieProcessor()
+                    opener = urllib.request.build_opener(cookie_processor)
+                    urllib.request.install_opener(opener)
+                    
+                    response = opener.open(request_url)
+                    html = response.read().decode('utf-8', errors='ignore')
+                    
+                    # Look for Google's large file download confirmation token link
+                    confirm_token = None
+                    match = re.search(r'confirm=([0-9A-Za-z_]+)', html)
+                    if match:
+                        confirm_token = match.group(1)
+                    
+                    # Step 2: Re-request using the explicit verification token bypass
+                    if confirm_token:
+                        final_url = f"{base_url}&confirm={confirm_token}&id={file_id}"
                     else:
-                        if os.path.exists(path): 
-                            os.remove(path)  # Delete broken file
-                        st.sidebar.error(f"❌ Downloaded file for {model_name} is corrupted or empty.")
+                        final_url = request_url
+                        
+                    urllib.request.urlretrieve(final_url, path)
+                    
+                    # Verification Layer
+                    if os.path.exists(path) and os.path.getsize(path) > 5000:
+                        st.sidebar.success(f"✅ {model_name} downloaded successfully!")
+                    else:
+                        if os.path.exists(path): os.remove(path)
+                        st.sidebar.error(f"❌ Received a broken empty shell file for {model_name}.")
                 except Exception as e:
-                    st.sidebar.error(f"❌ Failed to fetch weights for {model_name}: {e}")
-        else:
-            st.sidebar.error(f"⚠️ Missing Google Drive File ID config for: {model_name}")
+                    st.sidebar.error(f"❌ Downloader critical exception for {model_name}: {e}")
     return path
 
 # ── Optimized Lazy-Loading Cache Hooks ──
@@ -125,9 +141,8 @@ def load_selected_classification_model(name):
         try:
             return load_model(path)
         except Exception as e:
-            st.error(f"Error initializing model file: {e}")
-            if os.path.exists(path): 
-                os.remove(path) # Wipe file if it's broken so it re-downloads
+            st.error(f"Failed to read compiled model: {e}. Re-fetching file binary.")
+            if os.path.exists(path): os.remove(path)
     return None
 
 @st.cache_resource
@@ -221,7 +236,7 @@ with tab1:
             image_input = camera_img
 
     if image_input is not None:
-        col1, col2 = st.columns([1, 1])
+        col1, col2 = st.columns()
 
         with col1:
             st.markdown("### 🖼️ Input Image")
@@ -249,7 +264,7 @@ with tab1:
             st.markdown("#### 📊 Confidence per Class:")
             for cls, conf in sorted(
                 result["all_confidences"].items(),
-                key=lambda x: x[1], reverse=True
+                key=lambda x: x, reverse=True
             ):
                 emoji = CLASS_INFO.get(cls, {}).get("emoji", "🍌")
                 st.progress(int(conf), text=f"{emoji} {cls}: {conf:.1f}%")
