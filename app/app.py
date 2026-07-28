@@ -1,10 +1,18 @@
+import os
+import sys
+
+# ── CRITICAL: Environment Overrides to Prevent Segmentation Faults ──
+# Force TensorFlow to use safe, low-RAM configurations inside Streamlit Cloud
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["XLA_FLAGS"] = "--xla_cpu_compilation_parallelism=1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-import os
-import sys
 import json
 from tensorflow.keras.models import load_model
 from ultralytics import YOLO
@@ -67,7 +75,6 @@ if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
 # ── Google Drive File ID Mapping ──
-# CRITICAL: Replace these string placeholders with your actual Google Drive shareable file IDs!
 DRIVE_IDS = {
     "Custom CNN":     "14q_FPZdQ8sC1Hfnm-meSzN8eMPcLlZeq", 
     "MobileNetV2":    "1wP5bbqtB5j5PZfgHK0GiK0XNhIP_lWuQ", 
@@ -89,7 +96,7 @@ def download_if_missing(model_name, filename):
     if not os.path.exists(path):
         file_id = DRIVE_IDS.get(model_name)
         if file_id and "YOUR_" not in file_id:
-            download_url = f"https://drive.google.com/uc?id={file_id}"
+            download_url = f"https://google.com{file_id}"
             with st.spinner(f"📥 Downloading {model_name} architecture from Google Drive... Please wait."):
                 try:
                     gdown.download(download_url, path, quiet=False)
@@ -162,7 +169,6 @@ with st.sidebar:
     """)
 
 # ── Dynamic Model Invocations ──
-# This only downloads/loads the ONE chosen classification model to optimize RAM runtime safety
 with st.spinner("⏳ Configuring runtime environment..."):
     active_classification_model = load_selected_classification_model(selected_model)
     
@@ -206,7 +212,7 @@ with tab1:
         with col1:
             st.markdown("### 🖼️ Input Image")
             img_original, img_resized = load_image(image_input)
-            st.image(img_original, use_container_width=True)
+            st.image(img_original, width='stretch')
 
         with col2:
             st.markdown("### 🤖 Classification Result")
@@ -240,161 +246,4 @@ with tab1:
             image_input.seek(0)
 
             with st.spinner("Running YOLO detection..."):
-                det_result = detect_bananas(
-                    yolo_model, image_input, conf_threshold
-                )
-
-            col3, col4 = st.columns([1, 1])
-            with col3:
-                st.image(
-                    det_result["annotated_image"],
-                    use_container_width=True,
-                    caption="YOLO Detection Result"
-                )
-            with col4:
-                st.markdown(f"""
-                <div class="result-box">
-                    <h2>🍌 Bananas Detected: {det_result["count"]}</h2>
-                    <p>⚡ Detection Time: {det_result["inference_time"]:.1f} ms</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-                if det_result["count"] > 0:
-                    st.markdown("**Detected Objects:**")
-                    det_df = pd.DataFrame({
-                        "Class": det_result["detected_classes"],
-                        "Confidence (%)": [
-                            f"{c:.1f}%" for c in det_result["confidences"]
-                        ]
-                    })
-                    st.dataframe(det_df, use_container_width=True)
-                else:
-                    st.warning("No bananas detected. Try a clearer image!")
-
-        elif run_detection and yolo_model is None:
-            st.warning("⚠️ YOLO model file not available!")
-
-    else:
-        st.markdown("""
-        <div style="text-align:center; padding:50px; color:#666;">
-            <h2>👆 Upload or capture a banana image to get started!</h2>
-            <p>Supported formats: JPG, JPEG, PNG</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ── TAB 2: Model Performance Analytics ──
-with tab2:
-    st.markdown("## 📊 Model Comparison Dashboard")
-
-    comparison_path = os.path.join(REPORTS_DIR, "model_comparison.csv")
-
-    if os.path.exists(comparison_path):
-        df = pd.read_csv(comparison_path)
-
-        st.markdown("### 🏆 Performance Summary")
-        col1, col2, col3, col4 = st.columns(4)
-        best_acc_row = df.loc[df["Test Accuracy (%)"].idxmax()]
-        fastest_row  = df.loc[df["Inference Time (ms)"].idxmin()]
-
-        col1.metric("🥇 Best Accuracy",
-                    f"{best_acc_row['Test Accuracy (%)']:.2f}%",
-                    best_acc_row["Model"])
-        col2.metric("⚡ Fastest",
-                    f"{fastest_row['Inference Time (ms)']:.1f}ms",
-                    fastest_row["Model"])
-        col3.metric("📦 Models", "4 + YOLO", "Classification + Detection")
-        col4.metric("🎯 YOLO mAP50", "94.92%", "Object Detection")
-
-        st.markdown("### 📋 Comparison Table")
-        st.dataframe(df, use_container_width=True)
-
-        col5, col6 = st.columns(2)
-        colors = ["gold", "steelblue", "orange", "green"]
-
-        with col5:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            bars = ax.bar(df["Model"], df["Test Accuracy (%)"], color=colors)
-            ax.set_ylim(90, 100)
-            ax.set_title("Test Accuracy (%)")
-            for bar, val in zip(bars, df["Test Accuracy (%)"]):
-                ax.text(
-                    bar.get_x() + bar.get_width()/2,
-                    bar.get_height() + 0.1,
-                    f"{val}%", ha="center", fontsize=9, fontweight="bold"
-                )
-            plt.xticks(rotation=15)
-            plt.tight_layout()
-            st.pyplot(fig)
-
-        with col6:
-            fig2, ax2 = plt.subplots(figsize=(8, 5))
-            bars2 = ax2.bar(df["Model"], df["Inference Time (ms)"], color=colors)
-            ax2.set_title("Inference Time (ms/image)")
-            for bar, val in zip(bars2, df["Inference Time (ms)"]):
-                ax2.text(
-                    bar.get_x() + bar.get_width()/2,
-                    bar.get_height() + 0.2,
-                    f"{val}ms", ha="center", fontsize=9, fontweight="bold"
-                )
-            plt.xticks(rotation=15)
-            plt.tight_layout()
-            st.pyplot(fig2)
-
-        yolo_path = os.path.join(REPORTS_DIR, "yolo_detection_results.json")
-        if os.path.exists(yolo_path):
-            with open(yolo_path, "r") as f:
-                yolo_data = json.load(f)
-            st.markdown("### 🎯 YOLO Detection Results")
-            yc1, yc2, yc3, yc4 = st.columns(4)
-            yc1.metric("mAP50",     f"{yolo_data['mAP50']:.4f}")
-            yc2.metric("mAP50-95",  f"{yolo_data['mAP50_95']:.4f}")
-            yc3.metric("Precision", f"{yolo_data['precision']:.4f}")
-            yc4.metric("Recall",    f"{yolo_data['recall']:.4f}")
-
-        st.success("""
-        **🏆 Best Overall: EfficientNetB0**
-        - Highest accuracy (98.75%) + lowest loss (0.037)
-
-        **⚡ Best Speed: ResNet50**
-        - Same accuracy (98.75%) — faster inference (25.46ms)
-
-        **🎯 Detection: YOLOv8n**
-        - mAP50: 94.92% — detects & counts bananas
-        """)
-    else:
-        st.warning("⚠️ model_comparison.csv not found!")
-
-# ── TAB 3: Metadata / Documentation Documentation ──
-with tab3:
-    st.markdown("## ℹ️ About This Project")
-    st.markdown("""
-    ### 🍌 Advanced Banana Quality Detection System
-    End-to-end computer vision pipeline for banana ripeness classification and object detection.
-
-    ### 🔬 Models Summary Metrics:
-    | Model | Type | Accuracy |
-    |---|---|---|
-    | Custom CNN | Scratch | 97.51% |
-    | MobileNetV2 | Transfer Learning | 97.51% |
-    | EfficientNetB0 | Transfer Learning | 98.75% |
-    | ResNet50 | Transfer Learning | 98.75% |
-    | YOLOv8n | Object Detection | mAP50: 94.92% |
-
-    ### 📊 Managed Target Classes:
-    - 🟢 **Unripe** — Not ready to eat
-    - 🟡 **Ripe** — Perfect to eat
-    - 🟤 **Overripe** — Best for baking
-    - ⚫ **Rotten** — Not suitable
-
-    ### 📦 Dataset Attribution:
-    - Roboflow Universe — CC BY 4.0
-
-    ### 🛠️ Tech Stack:
-    Python | TensorFlow | PyTorch | Streamlit | YOLOv8
-    """)
-    st.markdown("""
-    <div class="footer">
-        🍌 Banana Quality Detection | GUVI Final Project |
-        Dataset: Roboflow Universe (CC BY 4.0)
-    </div>
-    """, unsafe_allow_html=True)
+                det_result = detect_bananas(yolo_model, image_input, conf_threshold)
