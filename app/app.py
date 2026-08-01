@@ -61,11 +61,11 @@ if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
 
 MODEL_URLS = {
-    "Custom CNN":     "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0/custom_cnn_model.keras",
-    "MobileNetV2":    "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0/mobilenetv2_model.keras",
-    "EfficientNetB0": "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0/efficientnetb0_model.keras",
-    "ResNet50":       "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0/resnet50_model.keras",
-    "YOLO":           "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0/yolo_detect_best.pt"
+    "Custom CNN":     "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0.0/custom_cnn_model.keras",
+    "MobileNetV2":    "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0.0/mobilenetv2_model.keras",
+    "EfficientNetB0": "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0.0/efficientnetb0_model.keras",
+    "ResNet50":       "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0.0/resnet50_model.keras",
+    "YOLO":           "https://github.com/MohamedNihmath18/advanced_banana_quality/releases/download/v1.0.0/yolo_detect_best.pt"
 }
 
 MODEL_FILES = {
