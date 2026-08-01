@@ -1,9 +1,11 @@
 import numpy as np
 from PIL import Image
-import tensorflow as tf
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
-from tensorflow.keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
-from tensorflow.keras.applications.resnet50 import preprocess_input as resnet_preprocess
+import os
+os.environ["KERAS_BACKEND"] = "jax"
+import keras
+from keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
+from keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
+from keras.applications.resnet50 import preprocess_input as resnet_preprocess
 import time
 
 CLASS_NAMES = ["overripe", "ripe", "rotten", "unripe"]
