@@ -122,9 +122,22 @@ def load_yolo():
     path = download_if_missing("YOLO", "yolo_detect_best.pt")
     if os.path.exists(path) and os.path.getsize(path) > 100000:
         try:
+            import torch
+            torch.serialization.add_safe_globals(
+                ['ultralytics.nn.tasks.DetectionModel']
+            )
             return YOLO(path)
         except Exception as e:
-            st.error(f"❌ YOLO error: {e}")
+            # Try with unsafe globals as fallback
+            try:
+                import torch
+                import ultralytics.nn.tasks
+                torch.serialization.add_safe_globals(
+                    [ultralytics.nn.tasks.DetectionModel]
+                )
+                return YOLO(path)
+            except Exception as e2:
+                st.error(f"❌ YOLO error: {e2}")
     return None
 
 # ── Header ──
